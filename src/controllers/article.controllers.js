@@ -111,15 +111,23 @@ const getArticleById = async (req, res,next) => {
 const updateArticleById = async (req, res,next) => {
     const articleSchema = Joi.object({
     title: Joi.string().min(5).optional(),
-    content: Joi.string().min(20).optional(),
-    author: Joi.string().optional()
+    content: Joi.string().min(20).optional()
   });
     const { error , value} = articleSchema.validate(req.body);
     if (error) {
         return res.status(400).json("please provide valid article fields")
   }
 
-    try {const updatedArticle = await Articlemodel.findByIdAndUpdate(
+    try {
+    const existing = await Articlemodel.findById(req.params.id);
+    if (!existing) {
+        return res.status(404).json({ message: "Article not found" });
+    }
+    if (existing.author.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: "You can only edit your own articles" });
+    }
+
+    const updatedArticle = await Articlemodel.findByIdAndUpdate(
         req.params.id,
         {...req.body},
         {
@@ -146,12 +154,18 @@ if (!updatedArticle) {
 ;
 const deleteArticleById = async (req, res,next) => {
     try {
-        const article = await Articlemodel.findByIdAndDelete(req.params.id)
+        const article = await Articlemodel.findById(req.params.id)
         if (!article) {
             return res.status(404).json({
                 message:'Article not found',
             });
         }
+        if (article.author.toString() !== req.user._id.toString()) {
+            return res.status(403).json({
+                message: 'You can only delete your own articles',
+            });
+        }
+        await article.deleteOne();
 
         return res.status(200).json({
             message: 'Article deleted successfully',

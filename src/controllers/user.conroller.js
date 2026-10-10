@@ -1,29 +1,18 @@
 const usermodel = require('../models/user.model');
-const joi = require('joi');
-const bcrypt = require('bcrypt');
+const { hashPassword, comparePassword } = require('../utils/bcrypt');
 const jwt = require('jsonwebtoken');
 
 
 
 
 const registerUser = async (req, res, next) => {
-    const registerSchema = joi.object({
-        name: joi.string().min(3).max(30).required(),
-        email: joi.string().email().required(),
-        password: joi.string().min(6).required()
-    });
-    const { error } = registerSchema.validate(req.body);
-    if (error) {
-        return res.status(400).json({ message: error.details[0].message });
-    }
     try {const {email,name,password} = req.body;
     const existingUser = await usermodel.findOne({ email: email });
     if (existingUser) {
         return res.status(400).json({ message: 'User already exists' });
     }
 
-    const salt = await bcrypt.genSalt(12);
-    const hashed = await bcrypt.hash(password, salt);
+    const hashed = await hashPassword(password);
     const user = new usermodel({
         name: name,
         email: email,
@@ -41,14 +30,6 @@ const registerUser = async (req, res, next) => {
     };
 
     const loginUser = async (req, res, next) => {
-        const loginSchema = joi.object({
-            email: joi.string().email().required(),
-            password: joi.string().min(6).required()
-        });
-const { error } = loginSchema.validate(req.body);
-if (error) {
-        return res.status(400).json({ message: error.details[0].message });
-    }
 try {
     const { email, password } = req.body;
         const user = await usermodel.findOne({ email: email })
@@ -57,7 +38,7 @@ try {
         }
 
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await comparePassword(password, user.password);
         if (!isMatch)  throw new Error('Invalid credentials');
 
         const token = jwt.sign(
