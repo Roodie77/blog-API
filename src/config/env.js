@@ -1,6 +1,6 @@
 require("dotenv").config();
 
-const required = ["PORT", "MONGODB_URI", "JWT_SECRET"];
+const required = ["PORT", "MONGODB_URI", "JWT_SECRET", "CLOUDINARY_URL"];
 
 const missing = required.filter((name) => !process.env[name]?.trim());
 

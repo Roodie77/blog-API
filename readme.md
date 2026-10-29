@@ -1,6 +1,6 @@
 # Blog API
 
-A small blog backend I built with Node, Express and MongoDB. You can sign up, log in and then create / read / update / delete articles. Passwords are hashed with bcrypt and login gives you a JWT.
+A small blog backend I built with Node, Express and MongoDB. You can sign up, log in and then create / read / update / delete articles. Passwords are hashed with bcrypt and login gives you a JWT. You can also upload a profile picture and add images to posts, those are stored on Cloudinary.
 
 ## Running it
 
@@ -22,7 +22,10 @@ then fill in your own values:
 PORT=3000
 MONGODB_URI=your mongo connection string
 JWT_SECRET=some long random string
+CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>
 ```
+
+You get `CLOUDINARY_URL` from your Cloudinary dashboard (API Keys page). The SDK picks it up by itself, no extra config needed.
 
 If you forget one the server won't start, it'll tell you which ones are missing (see `src/config/env.js`). I did this because before it would start fine and then crash later on the first login, which was annoying to debug.
 
@@ -34,10 +37,10 @@ src/
   index.js        connects to db and starts the server
   config/         db connection + env check
   controllers/
-  middlewares/    logger, error handler, requireAuth
+  middlewares/    logger, error handler, requireAuth, multer upload
   models/
   routes/
-  utils/          bcrypt helpers
+  utils/          bcrypt + cloudinary helpers
   validators/     joi validation
 ```
 
@@ -51,6 +54,7 @@ Base url is `http://localhost:PORT`
 |--------|----------|------|--------------|
 | POST | `/api/user/sign-up` | no | create an account |
 | POST | `/api/user/login` | no | log in, returns user + token |
+| PUT | `/api/user/profile-picture` | yes | upload / replace your profile picture |
 
 Sign up body:
 ```json
@@ -84,6 +88,17 @@ Create body (title at least 5 chars, content at least 20). The author is set fro
 { "title": "My first post", "content": "This is the content of my first post." }
 ```
 
+To add images, send the create request as `multipart/form-data` instead of JSON, with `title`, `content` and up to 5 files in the `images` field:
+```
+curl -X POST http://localhost:3000/api/articles \
+  -H "Authorization: Bearer <token>" \
+  -F "title=My first post" \
+  -F "content=This is the content of my first post." \
+  -F "images=@./photo1.jpg" \
+  -F "images=@./photo2.png"
+```
+Each image comes back in the article as `{ "url": "...", "publicId": "..." }`. Deleting an article also deletes its images from Cloudinary.
+
 Update body, send only what you want to change. You can only change title and content, the author can't be changed:
 ```json
 { "title": "New title" }
@@ -99,4 +114,21 @@ Anyone logged in can read all articles, but only the author can update or delete
 `404` means the article doesn't exist, `401` means your token is missing, wrong or expired.
 
 Pagination works on the get-all and search endpoints with `?page=1&limit=10`.
+
+### Image uploads
+
+Uploads go through multer (kept in memory) and then straight to Cloudinary, so nothing is saved on the server's disk. That matters on hosts like Render where the disk gets wiped on every deploy.
+
+Profile picture: send `multipart/form-data` with one file in the `profilePicture` field. Uploading a new one replaces the old one (the old one is deleted from Cloudinary).
+```
+curl -X PUT http://localhost:3000/api/user/profile-picture \
+  -H "Authorization: Bearer <token>" \
+  -F "profilePicture=@./me.jpg"
+```
+
+Rules for every upload:
+
+- JPEG, PNG or WEBP only, anything else is `400`
+- max 3MB per file, bigger is `413 File too large`
+- max 5 images per post, more is `400 Too many files`
 # Built by Jonathan Adewale :Roodie77

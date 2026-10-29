@@ -1,8 +1,7 @@
 const usermodel = require('../models/user.model');
 const { hashPassword, comparePassword } = require('../utils/bcrypt');
 const jwt = require('jsonwebtoken');
-const path = require('path');
-const { removeFiles, UPLOAD_ROOT } = require('../middlewares/upload');
+const { uploadImage, deleteImages } = require('../utils/cloudinary');
 
 
 
@@ -63,23 +62,24 @@ try {
 
 
     const uploadProfilePicture = async (req, res, next) => {
+        let uploaded;
         try {
             if (!req.file) {
                 return res.status(400).json({ message: 'Please attach an image in the "profilePicture" field' });
             }
+            uploaded = await uploadImage(req.file, 'avatars');
+
             const oldPicture = req.user.profilePicture;
-            req.user.profilePicture = `/uploads/avatars/${req.file.filename}`;
+            req.user.profilePicture = uploaded;
             await req.user.save();
 
-            if (oldPicture) {
-                await removeFiles([path.join(UPLOAD_ROOT, 'avatars', path.basename(oldPicture))]);
-            }
+            await deleteImages([oldPicture]);
             return res.status(200).json({
                 message: 'Profile picture updated successfully',
-                profilePicture: req.user.profilePicture
+                profilePicture: req.user.profilePicture.url
             });
         } catch (error) {
-            await removeFiles(req.file ? [req.file] : []);
+            await deleteImages([uploaded]);
             next(error);
         }
     };

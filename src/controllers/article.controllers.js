@@ -1,6 +1,6 @@
 const Joi = require("joi")
 const Articlemodel = require("../models/article.model")
-const { removeFiles } = require("../middlewares/upload")
+const { uploadImages, deleteImages } = require("../utils/cloudinary")
 
 const postArticle = async (req, res,next) => {
 const articleSchema = Joi.object({
@@ -11,16 +11,17 @@ const articleSchema = Joi.object({
   const { error , value} = articleSchema.validate(req.body)
 
     if (error) {
-    await removeFiles(req.files)
     return res.status(400).json("please provide article title and content")
   }
 
+    let images = [];
     try {
+                images = await uploadImages(req.files, 'posts');
                 const newArticle = new Articlemodel({
                     title: req.body.title,
                     content: req.body.content,
                     author: req.user._id,
-                    images: (req.files || []).map((f) => `/uploads/posts/${f.filename}`)
+                    images
                 });
         await newArticle.save();
 
@@ -30,7 +31,7 @@ const articleSchema = Joi.object({
          })
         
     } catch (error) {
-        await removeFiles(req.files)
+        await deleteImages(images)
         console.error(error)
         next(error);   
     }
@@ -170,6 +171,7 @@ const deleteArticleById = async (req, res,next) => {
             });
         }
         await article.deleteOne();
+        await deleteImages(article.images);
 
         return res.status(200).json({
             message: 'Article deleted successfully',
