@@ -10,6 +10,11 @@ const articleSchema = new mongoose.Schema({
         required: true,
         minlength: 20,
     },
+    images: {
+        type: [String],
+        default: [],
+        validate: [(v) => v.length <= 5, 'A post can have at most 5 images']
+    },
     author: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',

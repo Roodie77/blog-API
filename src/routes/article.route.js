@@ -2,11 +2,12 @@ const express = require("express");
 const router = express.Router()
 
 const { postArticle, getAllArticle, searchArticles, getArticleById, updateArticleById, deleteArticleById } = require("../controllers/article.controllers");
+const { uploadPostImages } = require("../middlewares/upload");
 const requireAuth = require("../middlewares/requireAuth");
 
 router.use(requireAuth);
 
-router.post('/articles', postArticle);
+router.post('/articles', uploadPostImages, postArticle);
 
 router.get('/articles', getAllArticle);
 

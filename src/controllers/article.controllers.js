@@ -1,5 +1,6 @@
 const Joi = require("joi")
 const Articlemodel = require("../models/article.model")
+const { removeFiles } = require("../middlewares/upload")
 
 const postArticle = async (req, res,next) => {
 const articleSchema = Joi.object({
@@ -10,6 +11,7 @@ const articleSchema = Joi.object({
   const { error , value} = articleSchema.validate(req.body)
 
     if (error) {
+    await removeFiles(req.files)
     return res.status(400).json("please provide article title and content")
   }
 
@@ -17,7 +19,8 @@ const articleSchema = Joi.object({
                 const newArticle = new Articlemodel({
                     title: req.body.title,
                     content: req.body.content,
-                    author: req.user._id
+                    author: req.user._id,
+                    images: (req.files || []).map((f) => `/uploads/posts/${f.filename}`)
                 });
         await newArticle.save();
 
@@ -27,6 +30,7 @@ const articleSchema = Joi.object({
          })
         
     } catch (error) {
+        await removeFiles(req.files)
         console.error(error)
         next(error);   
     }

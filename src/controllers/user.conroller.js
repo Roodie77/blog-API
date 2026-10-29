@@ -1,6 +1,8 @@
 const usermodel = require('../models/user.model');
 const { hashPassword, comparePassword } = require('../utils/bcrypt');
 const jwt = require('jsonwebtoken');
+const path = require('path');
+const { removeFiles, UPLOAD_ROOT } = require('../middlewares/upload');
 
 
 
@@ -60,4 +62,26 @@ try {
     };
 
 
-    module.exports = {loginUser, registerUser};
+    const uploadProfilePicture = async (req, res, next) => {
+        try {
+            if (!req.file) {
+                return res.status(400).json({ message: 'Please attach an image in the "profilePicture" field' });
+            }
+            const oldPicture = req.user.profilePicture;
+            req.user.profilePicture = `/uploads/avatars/${req.file.filename}`;
+            await req.user.save();
+
+            if (oldPicture) {
+                await removeFiles([path.join(UPLOAD_ROOT, 'avatars', path.basename(oldPicture))]);
+            }
+            return res.status(200).json({
+                message: 'Profile picture updated successfully',
+                profilePicture: req.user.profilePicture
+            });
+        } catch (error) {
+            await removeFiles(req.file ? [req.file] : []);
+            next(error);
+        }
+    };
+
+    module.exports = {loginUser, registerUser, uploadProfilePicture};
